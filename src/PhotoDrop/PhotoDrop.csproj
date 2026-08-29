@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PhotoDrop</AssemblyName>
+    <RootNamespace>PhotoDrop</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Tray app: WinExe means no console window ever appears. The UI is raw Win32
+         (see Win32.cs) because WinForms costs 65 MB and blocks trimming entirely. -->
+    <OutputType>WinExe</OutputType>
+    <ApplicationIcon>..\..\assets\PhotoDrop.ico</ApplicationIcon>
+
+    <Product>PhotoDrop</Product>
+    <AssemblyTitle>PhotoDrop</AssemblyTitle>
+    <Version>1.0.0</Version>
+
+    <!-- Publish settings: one portable .exe that needs nothing installed -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <!-- Nothing here is hosted in IIS; skip the native module and web.config. -->
+    <PublishIISAssets>false</PublishIISAssets>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <DebugType>none</DebugType>
+
+    <!-- The folder picker is COM (IFileDialog); trimming switches built-in COM interop
+         off by default, which crashes the picker on first use. -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+
+    <!-- Trim away runtime features nothing here uses. -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\PhotoDrop.ico" LogicalName="PhotoDrop.icon.ico" />
+    <!-- Served by the web page so a home-screen shortcut gets the app's icon. -->
+    <EmbeddedResource Include="..\..\assets\apple-touch-icon.png" LogicalName="PhotoDrop.apple-touch-icon.png" />
+    <EmbeddedResource Include="..\..\assets\icon-192.png" LogicalName="PhotoDrop.icon-192.png" />
+    <EmbeddedResource Include="..\..\assets\icon-512.png" LogicalName="PhotoDrop.icon-512.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+</Project>

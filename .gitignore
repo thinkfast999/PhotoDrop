@@ -1,0 +1,11 @@
+# build output
+bin/
+obj/
+dist/
+
+# generated at runtime, never committed
+config.json
+
+# local archives
+*.rar
+*.zip
