@@ -18,9 +18,23 @@ sealed class AppConfig
         System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "PhotoDrop");
 
-    /// <summary>Always next to the exe. One file, where you can see it.</summary>
-    public static string Path_ { get; } =
-        System.IO.Path.Combine(AppContext.BaseDirectory, "config.json");
+    /// <summary>~/.photodrop - the same place on Windows, macOS and Linux, so the settings
+    /// survive moving, replacing or reinstalling the executable.</summary>
+    public static string Folder { get; } = System.IO.Path.Combine(HomeDirectory(), ".photodrop");
+
+    /// <summary>One file, where you can see it.</summary>
+    public static string Path_ { get; } = System.IO.Path.Combine(Folder, "config.json");
+
+    static string HomeDirectory()
+    {
+        // UserProfile is %USERPROFILE% on Windows and $HOME everywhere else.
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(home)) home = Environment.GetEnvironmentVariable("HOME") ?? "";
+        if (string.IsNullOrWhiteSpace(home))
+            home = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        // No home at all (a service account, say) - beside the exe beats nowhere.
+        return string.IsNullOrWhiteSpace(home) ? AppContext.BaseDirectory : home;
+    }
 
     // Source-generated metadata: reflection-based JSON does not survive trimming.
     static readonly JsonSerializerOptions ReadOptions = new()
@@ -73,6 +87,7 @@ sealed class AppConfig
     {
         try
         {
+            Directory.CreateDirectory(Folder);
             File.WriteAllText(Path_, JsonSerializer.Serialize(this, WriteInfo));
         }
         catch (Exception ex)
@@ -81,8 +96,8 @@ sealed class AppConfig
             if (_warnedAboutSaving) return;
             _warnedAboutSaving = true;
             Dialogs.Warn($"PhotoDrop can't write its settings file:\n\n{Path_}\n\n{ex.Message}"
-                         + "\n\nSettings won't be remembered. Move PhotoDrop.exe somewhere you "
-                         + "can write to, such as your Desktop or C:\\PhotoDrop.");
+                         + "\n\nSettings won't be remembered. Check that you can "
+                         + $"write to {Folder}.");
         }
     }
 

@@ -32,7 +32,8 @@ A notification pops up when photos arrive; click it to open the folder.
 
 ## Settings
 
-`config.json` sits next to the exe and is created on first run.
+`config.json` sits in `.photodrop` in your home folder (`%USERPROFILE%\.photodrop` on Windows,
+`~/.photodrop` on macOS and Linux) and is created on first run.
 
 | Key | Meaning |
 | --- | --- |
