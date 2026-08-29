@@ -10,7 +10,7 @@ No cloud, no account, no cable, nothing to install. One 12 MB Windows exe.
 Download `PhotoDrop.exe` from [Releases](../../releases/latest) and double-click it.
 
 1. Windows asks about network access the first time — click **Allow**.
-2. A setup page opens with a QR code. Scan it with your phone's camera (same Wi-Fi).
+2. A setup page opens with a QR code. Scan it with your phone's camera (same Wi-Fi). You can save the webpage as an app from most phone web browsers to access it quickly.
 3. Tap **Transfer photos**, pick some, done.
 
 That's the only time you'll see the setup page. After that PhotoDrop sits quietly in
@@ -39,7 +39,7 @@ A notification pops up when photos arrive; click it to open the folder.
 | `SaveFolder` | Where photos go. Blank = `Pictures\PhotoDrop`. |
 | `Port` | Default `8080`. |
 | `Pin` | Blank = anyone on your Wi-Fi can send. Set one to require it. |
-| `OrganizeByDate` | `true` puts each day in its own subfolder. Off by default. |
+| `OrganizeByDate` | `false` puts each day in its own subfolder. Off by default. |
 | `Introduced` | Set to `false` to see the setup page again. |
 
 Restart PhotoDrop after editing (tray → Exit, then run it again).
