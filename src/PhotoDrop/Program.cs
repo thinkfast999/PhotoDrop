@@ -123,15 +123,16 @@ static class Program
 
     const string CacheFor7Days = "public, max-age=604800";
 
-    const string Manifest = """
+    // Colours come from Theme so the home-screen tile can't drift from the page itself.
+    const string Manifest = $$"""
         {
           "name": "PhotoDrop",
           "short_name": "PhotoDrop",
           "start_url": "/",
           "scope": "/",
           "display": "standalone",
-          "background_color": "#101216",
-          "theme_color": "#2563eb",
+          "background_color": "{{Theme.BgDark}}",
+          "theme_color": "{{Theme.Accent}}",
           "icons": [
             { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
             { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
@@ -225,8 +226,7 @@ static class Program
             }
 
             return Results.Content(
-                "<meta charset=utf-8><body style=\"font:16px system-ui;padding:2rem\">"
-                + $"<h2>Saved {count} file(s).</h2><a href=\"/\">Back</a></body>",
+                Html.Receipt.Replace("__MSG__", $"Saved {count} {(count == 1 ? "photo" : "photos")}"),
                 "text/html; charset=utf-8");
         });
 
@@ -238,8 +238,6 @@ static class Program
 
             var addresses = Net.LocalAddresses();
             var state = $"{{\"port\":{config.Port},"
-                        + $"\"folder\":{Json(config.SaveFolder)},"
-                        + $"\"startup\":{(AppConfig.RunsAtLogin ? "true" : "false")},"
                         + $"\"addresses\":[{string.Join(",", addresses.Select(Json))}]}}";
 
             return Results.Content(SetupHtml.Page.Replace("__STATE__", state),
@@ -256,26 +254,6 @@ static class Program
             var png = new PngByteQRCode(data).GetGraphic(
                 10, new byte[] { 20, 22, 26 }, new byte[] { 255, 255, 255 });
             return Results.Bytes(png, "image/png");
-        });
-
-        app.MapPost("/api/startup", async (HttpContext ctx) =>
-        {
-            if (!IsLocal(ctx)) return Results.NotFound();
-
-            bool wanted;
-            try
-            {
-                using var body = await JsonDocument.ParseAsync(ctx.Request.Body);
-                wanted = body.RootElement.GetProperty("enabled").GetBoolean();
-            }
-            catch
-            {
-                return Results.BadRequest();
-            }
-
-            AppConfig.RunsAtLogin = wanted;
-            return Results.Text($"{{\"enabled\":{(AppConfig.RunsAtLogin ? "true" : "false")}}}",
-                                "application/json");
         });
 
         app.MapPost("/api/firewall", (HttpContext ctx) =>

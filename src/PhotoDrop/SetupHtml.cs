@@ -8,7 +8,11 @@ namespace PhotoDrop;
 static class SetupHtml
 {
     // __STATE__ is replaced with a JSON blob at request time.
-    public const string Page = """
+    public static readonly string Page = Template
+        .Replace("__THEME__", Theme.Css)
+        .Replace("__SPRITE__", Theme.Sprite);
+
+    const string Template = """
 <!doctype html>
 <html lang="en">
 <head>
@@ -17,101 +21,177 @@ static class SetupHtml
 <title>PhotoDrop setup</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <style>
+__THEME__
+
+@layer page {
   :root {
-    --bg: #f6f7f9; --card: #fff; --ink: #14161a; --muted: #6b7280;
-    --line: #e4e7ec; --accent: #2f6df6; --ok: #15803d; --bad: #b91c1c;
+    --qr: 240px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #101216; --card: #191c22; --ink: #e9ecf1; --muted: #9aa3b2;
-      --line: #2a2f39; --accent: #4d86ff; --ok: #4ade80; --bad: #f87171;
+
+  body {
+    padding: var(--step-6) var(--step-5) calc(var(--step-6) * 1.5);
+  }
+
+  .sub {
+    margin-bottom: var(--step-5);
+  }
+
+  ol {
+    margin: 0 0 var(--step-5);
+    padding-left: var(--step-5);
+
+    & li {
+      margin-bottom: var(--step-1);
     }
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
-    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex; justify-content: center; padding: 32px 20px 48px;
-  }
-  main { width: 100%; max-width: 420px; }
-  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
-  ol { margin: 0 0 20px; padding-left: 22px; }
-  li { margin-bottom: 4px; }
+
+  /* A card - and the only one. It sits on the page, holds nothing but the code. */
   .qr {
-    background: #fff; border: 1px solid var(--line); border-radius: 16px;
-    padding: 16px; display: flex; justify-content: center; margin-bottom: 18px;
+    display: grid;
+    place-items: center;
+    padding: var(--step-4);
+    margin-bottom: var(--step-4);
+    border: var(--hairline);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+
+    & img {
+      display: block;
+      inline-size: var(--qr);
+      block-size: var(--qr);
+      image-rendering: pixelated;
+    }
   }
-  .qr img { width: 240px; height: 240px; display: block; image-rendering: pixelated; }
-  .addr { display: flex; gap: 8px; margin-bottom: 6px; }
-  .addr input {
-    flex: 1; font: 600 15px/1 ui-monospace, Consolas, monospace; text-align: center;
-    padding: 12px; border-radius: 10px; border: 1px solid var(--line);
-    background: var(--card); color: var(--ink);
+
+  .addr {
+    display: flex;
+    align-items: center;
+    gap: var(--step-2);
+
+    & input {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
   }
-  button {
-    font: inherit; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line);
-    background: var(--card); color: var(--ink); cursor: pointer;
+
+  .field {
+    flex: 1;
+
+    &[hidden] {
+      display: none;
+    }
+
+    /* appearance:none takes the native arrow with it, so put one back */
+    &:has(select) {
+      grid-template-columns: auto 1fr auto;
+    }
+
+    & .chevron {
+      pointer-events: none;
+    }
   }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
-  .hint { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
-  .row { display: flex; align-items: center; gap: 9px; padding: 12px 0; border-top: 1px solid var(--line); }
-  .row label { cursor: pointer; }
-  select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line);
-           background: var(--card); color: var(--ink); width: 100%; }
-  .folder { font-size: 13px; color: var(--muted); word-break: break-all; }
-  details { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
-  summary { cursor: pointer; color: var(--accent); font-size: 14px; }
-  details p { font-size: 13.5px; color: var(--muted); }
-  #fwResult { font-size: 13.5px; margin-top: 8px; }
-  .ok { color: var(--ok); } .bad { color: var(--bad); }
+
+  #pickRow {
+    margin-top: var(--step-2);
+  }
+
+  .hint {
+    margin-block: var(--step-2) var(--step-5);
+  }
+
+  details {
+    padding-top: var(--step-3);
+    border-top: var(--hairline);
+
+    & summary {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: var(--step-3);
+      list-style: none;
+      cursor: pointer;
+      color: var(--accent);
+      font-size: var(--size-sm);
+      font-weight: 600;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+    }
+
+    /* the result line keeps its own ok/bad colour */
+    & p:not(#fwResult) {
+      margin-top: var(--step-3);
+      color: var(--muted);
+      font-size: var(--size-sm);
+    }
+
+    & #fwResult {
+      margin-top: var(--step-3);
+      font-size: var(--size-sm);
+    }
+
+    & .btn {
+      margin-top: var(--step-4);
+    }
+
+    &[open] .chevron {
+      rotate: 180deg;
+    }
+  }
+
+  .chevron {
+    transition: rotate var(--quick);
+  }
+
+  #fwResult:empty {
+    display: none;
+  }
+}
 </style>
 </head>
 <body>
+__SPRITE__
 <main>
   <h1>Send photos from your phone</h1>
-  <p class="sub">Leave PhotoDrop running in the tray. This page is only for setting things up.</p>
+  <p class="sub">Keep PhotoDrop running in the tray.</p>
 
   <ol>
-    <li>Put your phone on the same Wi-Fi as this PC.</li>
-    <li>Open the phone camera and point it at this code.</li>
+    <li>Put your phone on this Wi-Fi.</li>
+    <li>Point its camera at the code.</li>
   </ol>
 
   <div class="qr"><img id="qr" alt="QR code for the PhotoDrop address"></div>
 
   <div class="addr">
-    <input id="url" readonly>
-    <button id="copy" title="Copy address">Copy</button>
+    <span class="field">
+      <svg class="icon"><use href="#i-phone"></use></svg>
+      <input id="url" readonly>
+    </span>
+    <button id="copy" class="link">
+      <svg class="icon"><use id="copyIcon" href="#i-copy"></use></svg><span id="copyText">Copy</span>
+    </button>
   </div>
-  <p class="hint">No camera? Type that into the phone's browser.</p>
 
-  <div id="pickRow" class="row" hidden>
+  <label class="field" id="pickRow" hidden>
+    <svg class="icon"><use href="#i-wifi"></use></svg>
     <select id="pick"></select>
-  </div>
+    <svg class="icon chevron"><use href="#i-chevron"></use></svg>
+  </label>
 
-  <div class="row">
-    <input type="checkbox" id="startup">
-    <label for="startup">Start PhotoDrop when I sign in to Windows</label>
-  </div>
-
-  <div class="row">
-    <span class="folder">Photos are saved to <b id="folder"></b><br>
-    Change it from the tray icon &rarr; Choose folder...</span>
-  </div>
+  <p class="hint">No camera? Type it into your phone's browser.</p>
 
   <details>
-    <summary>Phone can't connect?</summary>
-    <p>
-      Check the phone is on the same Wi-Fi as this PC (not mobile data), and that you
-      typed the whole address including the port at the end.
-    </p>
-    <p>
-      If both look right, Windows Firewall is probably blocking PhotoDrop &mdash; that
-      happens if the network prompt was dismissed the first time it ran.
-    </p>
-    <button id="fw" class="primary">Let PhotoDrop through the firewall</button>
-    <div id="fwResult"></div>
+    <summary>
+      <svg class="icon"><use href="#i-shield"></use></svg>
+      <span>Phone can't connect?</span>
+      <svg class="icon chevron"><use href="#i-chevron"></use></svg>
+    </summary>
+    <p>Check the phone is on this Wi-Fi, not mobile data, and that you typed the whole
+       address including the port.</p>
+    <p>If that looks right, Windows Firewall is blocking PhotoDrop.</p>
+    <button id="fw" class="btn">Allow through the firewall</button>
+    <p id="fwResult"></p>
   </details>
 </main>
 
@@ -121,10 +201,6 @@ const qr = document.getElementById('qr');
 const url = document.getElementById('url');
 const pick = document.getElementById('pick');
 const pickRow = document.getElementById('pickRow');
-const startup = document.getElementById('startup');
-
-document.getElementById('folder').textContent = STATE.folder;
-startup.checked = STATE.startup;
 
 STATE.addresses.forEach((a, i) => {
   const option = document.createElement('option');
@@ -142,43 +218,35 @@ function render() {
 pick.addEventListener('change', render);
 render();
 
-document.getElementById('copy').addEventListener('click', async (e) => {
+const copyIcon = document.getElementById('copyIcon');
+const copyText = document.getElementById('copyText');
+
+document.getElementById('copy').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(url.value);
   } catch {
     url.select();                       // clipboard API needs a secure context in some browsers
     document.execCommand('copy');
   }
-  e.target.textContent = 'Copied';
-  setTimeout(() => (e.target.textContent = 'Copy'), 1400);
-});
-
-startup.addEventListener('change', async () => {
-  const wanted = startup.checked;
-  try {
-    const res = await fetch('/api/startup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: wanted }),
-    });
-    const data = await res.json();
-    startup.checked = data.enabled;     // trust the registry, not the click
-  } catch {
-    startup.checked = !wanted;
-  }
+  copyIcon.setAttribute('href', '#i-check');
+  copyText.textContent = 'Copied';
+  setTimeout(() => {
+    copyIcon.setAttribute('href', '#i-copy');
+    copyText.textContent = 'Copy';
+  }, 1400);
 });
 
 document.getElementById('fw').addEventListener('click', async (e) => {
   const out = document.getElementById('fwResult');
   e.target.disabled = true;
-  out.textContent = 'Waiting for the Windows permission prompt...';
+  out.textContent = 'Waiting for the Windows prompt...';
   out.className = '';
   try {
     const res = await fetch('/api/firewall', { method: 'POST' });
     const data = await res.json();
     out.textContent = data.ok
       ? 'Done. Try the address on your phone again.'
-      : "The rule wasn't added - permission was declined, or this account isn't an administrator.";
+      : "Blocked - permission was declined, or this account isn't an administrator.";
     out.className = data.ok ? 'ok' : 'bad';
   } catch {
     out.textContent = 'Something went wrong.';

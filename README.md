@@ -11,7 +11,7 @@ Download `PhotoDrop.exe` from [Releases](../../releases/latest) and double-click
 
 1. Windows asks about network access the first time — click **Allow**.
 2. A setup page opens with a QR code. Scan it with your phone's camera (same Wi-Fi). You can save the webpage as an app from most phone web browsers to access it quickly.
-3. Tap **Transfer photos**, pick some, done.
+3. Tap **Send photos**, pick some, done.
 
 That's the only time you'll see the setup page. After that PhotoDrop sits quietly in
 the system tray as a blue arrow icon. Photos go to a `PhotoDrop` folder inside your
