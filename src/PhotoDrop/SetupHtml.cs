@@ -29,7 +29,12 @@ __THEME__
   }
 
   body {
-    padding: var(--step-6) var(--step-5) calc(var(--step-6) * 1.5);
+    /* One short column, so centre it. `safe` keeps the top reachable when the page
+       outgrows the viewport - plain centring would push it out of scroll range. */
+    display: grid;
+    align-content: safe center;
+    min-height: 100dvh;
+    padding: var(--step-6) var(--step-5);
   }
 
   .sub {
@@ -68,7 +73,7 @@ __THEME__
     align-items: center;
     gap: var(--step-2);
 
-    & input {
+    & select {
       font-family: var(--font-mono);
       font-weight: 600;
     }
@@ -86,41 +91,79 @@ __THEME__
       grid-template-columns: auto 1fr auto;
     }
 
+    /* a single address is not a choice - drop the arrow and don't open a menu */
+    &:has(option:only-child) {
+      grid-template-columns: auto 1fr;
+
+      & select {
+        pointer-events: none;
+      }
+
+      & .chevron {
+        display: none;
+      }
+    }
+
     & .chevron {
       pointer-events: none;
     }
-  }
-
-  #pickRow {
-    margin-top: var(--step-2);
   }
 
   .hint {
     margin-block: var(--step-2) var(--step-5);
   }
 
-  /* The two entries at the foot of the page share one shape. */
-  .tail {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+  header {
+    display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--step-3);
-    width: 100%;
-    padding-block: var(--step-3);
-    border-top: var(--hairline);
-    list-style: none;
-    cursor: pointer;
-    color: var(--accent);
-    font-size: var(--size-sm);
-    font-weight: 600;
-    text-align: left;
+    margin-bottom: var(--step-1);
 
-    &::-webkit-details-marker {
-      display: none;
+    /* the gap below the heading belongs to the row, or it skews the centring */
+    & h1 {
+      margin: 0;
+    }
+  }
+
+  /* Icon only, so it needs a tap target the icon itself doesn't provide. The negative
+     margin pulls that padding back off the column edge so the gear stays aligned. */
+  .cog {
+    --pad: calc((var(--tap) - var(--icon)) / 2);
+
+    display: grid;
+    place-items: center;
+    inline-size: var(--tap);
+    block-size: var(--tap);
+    margin-right: calc(var(--pad) * -1);
+    border-radius: var(--radius-pill);
+    color: var(--muted);
+    transition: color var(--quick);
+
+    &:hover {
+      color: var(--ink);
     }
   }
 
   details {
+
+    & summary {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: var(--step-3);
+      padding-block: var(--step-3);
+      border-top: var(--hairline);
+      list-style: none;
+      cursor: pointer;
+      color: var(--accent);
+      font-size: var(--size-sm);
+      font-weight: 600;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+    }
 
     /* the result line keeps its own ok/bad colour */
     & p:not(#fwResult) {
@@ -264,8 +307,13 @@ __THEME__
 <body>
 __SPRITE__
 <main>
-  <h1>Send photos from your phone</h1>
-  <p class="sub">Keep PhotoDrop running in the tray.</p>
+  <header>
+    <h1>Send photos from your phone</h1>
+    <button type="button" id="openPrefs" class="cog" aria-label="Preferences" title="Preferences">
+      <svg class="icon"><use href="#i-cog"></use></svg>
+    </button>
+  </header>
+  <p class="sub">PhotoDrop keeps running in the tray.</p>
 
   <ol>
     <li>Put your phone on this Wi-Fi.</li>
@@ -275,30 +323,20 @@ __SPRITE__
   <div class="qr"><img id="qr" alt="QR code for the PhotoDrop address"></div>
 
   <div class="addr">
-    <span class="field">
+    <label class="field">
       <svg class="icon"><use href="#i-phone"></use></svg>
-      <input id="url" readonly>
-    </span>
+      <select id="pick"></select>
+      <svg class="icon chevron"><use href="#i-chevron"></use></svg>
+    </label>
     <button id="copy" class="link">
       <svg class="icon"><use id="copyIcon" href="#i-copy"></use></svg><span id="copyText">Copy</span>
     </button>
   </div>
 
-  <label class="field" id="pickRow" hidden>
-    <svg class="icon"><use href="#i-wifi"></use></svg>
-    <select id="pick"></select>
-    <svg class="icon chevron"><use href="#i-chevron"></use></svg>
-  </label>
-
   <p class="hint">No camera? Type it into your phone's browser.</p>
 
-  <button id="openPrefs" class="tail">
-    <svg class="icon"><use href="#i-sliders"></use></svg>
-    <span>Preferences</span>
-  </button>
-
   <details>
-    <summary class="tail">
+    <summary>
       <svg class="icon"><use href="#i-shield"></use></svg>
       <span>Phone can't connect?</span>
       <svg class="icon chevron"><use href="#i-chevron"></use></svg>
@@ -350,21 +388,18 @@ __SPRITE__
 <script>
 const STATE = __STATE__;
 const qr = document.getElementById('qr');
-const url = document.getElementById('url');
 const pick = document.getElementById('pick');
-const pickRow = document.getElementById('pickRow');
+let address = '';
 
-STATE.addresses.forEach((a, i) => {
+STATE.addresses.forEach((a) => {
   const option = document.createElement('option');
   option.value = a;
-  option.textContent = i === 0 ? `${a} (recommended)` : a;
+  option.textContent = `http://${a}:${STATE.port}`;
   pick.appendChild(option);
 });
-if (STATE.addresses.length > 1) pickRow.hidden = false;
 
 function render() {
-  const address = `http://${pick.value}:${STATE.port}`;
-  url.value = address;
+  address = `http://${pick.value}:${STATE.port}`;
   qr.src = '/setup-qr.png?u=' + encodeURIComponent(address);
 }
 pick.addEventListener('change', render);
@@ -375,10 +410,15 @@ const copyText = document.getElementById('copyText');
 
 document.getElementById('copy').addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(url.value);
+    await navigator.clipboard.writeText(address);
   } catch {
-    url.select();                       // clipboard API needs a secure context in some browsers
+    // the clipboard API needs a secure context in some browsers
+    const scratch = document.createElement('textarea');
+    scratch.value = address;
+    document.body.append(scratch);
+    scratch.select();
     document.execCommand('copy');
+    scratch.remove();
   }
   copyIcon.setAttribute('href', '#i-check');
   copyText.textContent = 'Copied';
