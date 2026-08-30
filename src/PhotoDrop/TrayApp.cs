@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -78,6 +79,8 @@ sealed class TrayApp : IDisposable
         Win32.Shell_NotifyIcon(Win32.NIM_SETVERSION, ref _tray);
 
         Program.FileSaved += OnFileSaved;
+        Program.ConfigChanged += OnConfigChanged;
+        Program.FolderPicker = RequestFolderAsync;
 
         // Only on the very first run - every later launch starts silently.
         if (!_config.Introduced)
@@ -112,6 +115,19 @@ sealed class TrayApp : IDisposable
                 // An upload landed; restart the quiet-period timer so a burst gets one balloon.
                 Win32.KillTimer(_hwnd, BalloonTimer);
                 Win32.SetTimer(_hwnd, BalloonTimer, BalloonDelayMs, IntPtr.Zero);
+                return IntPtr.Zero;
+
+            case Win32.WM_PICK:
+                // On the message loop at last, which is the only place IFileDialog works.
+                while (_pickRequests.TryDequeue(out var request))
+                {
+                    try { request.Done.TrySetResult(Dialogs.PickFolder(request.Start)); }
+                    catch (Exception ex) { request.Done.TrySetException(ex); }
+                }
+                return IntPtr.Zero;
+
+            case Win32.WM_CONFIG:
+                RefreshTip();
                 return IntPtr.Zero;
 
             case Win32.WM_TIMER:
@@ -196,6 +212,37 @@ sealed class TrayApp : IDisposable
 
         Balloon($"{count} {(count == 1 ? "photo" : "photos")} received",
                 "Click here to open the folder.");
+    }
+
+    readonly ConcurrentQueue<(string Start, TaskCompletionSource<string?> Done)> _pickRequests = new();
+
+    /// <summary>Queues a folder pick for the message loop and waits for the answer.</summary>
+    Task<string?> RequestFolderAsync(string start)
+    {
+        var done = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (_hwnd == IntPtr.Zero)
+        {
+            done.SetResult(null);
+            return done.Task;
+        }
+
+        _pickRequests.Enqueue((start, done));
+        Win32.PostMessage(_hwnd, Win32.WM_PICK, IntPtr.Zero, IntPtr.Zero);
+        return done.Task;
+    }
+
+    // Called from a Kestrel thread; hop to the message loop before touching the tray.
+    void OnConfigChanged()
+    {
+        if (_hwnd != IntPtr.Zero)
+            Win32.PostMessage(_hwnd, Win32.WM_CONFIG, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    /// <summary>The tooltip carries the port, so a port change has to be reflected here.</summary>
+    void RefreshTip()
+    {
+        _tray.szTip = Truncate($"{Program.AppName} - {Net.LocalAddresses()[0]}:{_config.Port}", 127);
+        Win32.Shell_NotifyIcon(Win32.NIM_MODIFY, ref _tray);
     }
 
     void Balloon(string title, string text)
@@ -307,6 +354,11 @@ sealed class TrayApp : IDisposable
         _disposed = true;
 
         Program.FileSaved -= OnFileSaved;
+        Program.ConfigChanged -= OnConfigChanged;
+        Program.FolderPicker = null;
+
+        // Nothing will pump the message loop again, so let any waiting request go.
+        while (_pickRequests.TryDequeue(out var pending)) pending.Done.TrySetResult(null);
 
         if (_hwnd != IntPtr.Zero)
         {

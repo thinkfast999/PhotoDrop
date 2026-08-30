@@ -18,6 +18,8 @@ static class Win32
 
     public const int WM_TRAY = WM_APP + 1;      // tray icon callbacks land here
     public const int WM_POST = WM_APP + 2;      // "run this on the UI thread" nudge
+    public const int WM_CONFIG = WM_APP + 3;    // settings changed; catch the tray up
+    public const int WM_PICK = WM_APP + 4;      // show the folder picker on this thread
 
     public const int WM_USER = 0x0400;
 

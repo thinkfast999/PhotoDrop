@@ -1,13 +1,26 @@
+namespace PhotoDrop;
+
+/// <summary>The page the phone sees. One screen, one action.</summary>
 static class Html
 {
-    // __PIN_REQUIRED__ and __FOLDER__ are substituted at startup from config.json.
-    public const string Page = """
-<!doctype html>
-<html lang="en">
-<head>
+    // __PIN_REQUIRED__ and __FOLDER__ are substituted per request from config.json.
+    public static readonly string Page = Fill(PageTemplate);
+
+    // __MSG__ is substituted after a form post from a browser with JavaScript switched off.
+    public static readonly string Receipt = Fill(ReceiptTemplate);
+
+    static string Fill(string template) => template
+        .Replace("__HEAD__", Head)
+        .Replace("__THEME__", Theme.Css)
+        .Replace("__SPRITE__", Theme.Sprite)
+        .Replace("__BG_LIGHT__", Theme.BgLight)
+        .Replace("__BG_DARK__", Theme.BgDark);
+
+    const string Head = """
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111318">
+<meta name="theme-color" content="__BG_LIGHT__" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="__BG_DARK__" media="(prefers-color-scheme: dark)">
 <title>PhotoDrop</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -17,82 +30,177 @@ static class Html
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="PhotoDrop">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+""";
+
+    const string PageTemplate = """
+<!doctype html>
+<html lang="en">
+<head>
+__HEAD__
 <style>
-  :root {
-    --bg: #f6f7f9; --card: #ffffff; --ink: #14161a; --muted: #6b7280;
-    --line: #e4e7ec; --accent: #2f6df6; --ok: #15803d; --bad: #b91c1c;
+__THEME__
+
+@layer page {
+  body {
+    padding: max(var(--step-5), env(safe-area-inset-top)) var(--step-5)
+             calc(var(--step-6) + env(safe-area-inset-bottom));
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #101216; --card: #191c22; --ink: #e9ecf1; --muted: #9aa3b2;
-      --line: #2a2f39; --accent: #4d86ff; --ok: #4ade80; --bad: #f87171;
+
+  .sub {
+    display: flex;
+    align-items: center;
+    gap: var(--step-2);
+    margin-bottom: var(--step-5);
+    overflow-wrap: anywhere;
+  }
+
+  /* Once files are moving, the folder line has done its job. */
+  main:has(#list > li) .sub {
+    display: none;
+  }
+
+  .field[hidden] {
+    display: none;
+  }
+
+  #pin {
+    margin-bottom: var(--step-3);
+  }
+
+  #status {
+    margin-block: var(--step-4) var(--step-2);
+    color: var(--muted);
+    font-size: var(--size-sm);
+
+    &:empty {
+      display: none;
     }
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: max(20px, env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));
-    display: flex; justify-content: center;
+
+  ul {
+    display: grid;
+    gap: var(--step-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
-  main { width: 100%; max-width: 460px; }
-  h1 { font-size: 22px; margin: 4px 0 2px; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; word-break: break-all; }
-  button {
-    -webkit-appearance: none; appearance: none; font: inherit; font-weight: 600;
-    width: 100%; padding: 20px; border: 0; border-radius: 16px;
-    background: var(--accent); color: #fff; cursor: pointer;
-    box-shadow: 0 6px 18px rgba(47, 109, 246, .28);
-  }
-  button:active { transform: translateY(1px); }
-  button:disabled { opacity: .55; box-shadow: none; cursor: default; }
-  #pinRow { display: none; margin-bottom: 12px; }
-  #pinRow input {
-    font: inherit; width: 100%; padding: 14px; border-radius: 12px;
-    border: 1px solid var(--line); background: var(--card); color: var(--ink);
-  }
-  #status { margin: 18px 0 8px; font-size: 14px; color: var(--muted); min-height: 20px; }
-  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
   li {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 11px 13px; font-size: 14px;
+    padding: var(--step-3);
+    border: var(--hairline);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: var(--size-sm);
+
+    & .row {
+      display: flex;
+      align-items: center;
+      gap: var(--step-2);
+    }
+
+    & .name {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    & .pct {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: var(--size-xs);
+    }
+
+    & .mark {
+      display: none;
+    }
+
+    & .bar {
+      height: 3px;
+      margin-top: var(--step-2);
+      border-radius: var(--radius-pill);
+      background: var(--line);
+      overflow: hidden;
+
+      & > i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+        transition: width var(--quick);
+      }
+    }
+
+    &:is(.done, .fail) {
+      & .mark {
+        display: block;
+      }
+
+      & .bar {
+        display: none;
+      }
+    }
+
+    &.done :is(.pct, .mark) {
+      color: var(--ok);
+    }
+
+    &.fail :is(.pct, .mark) {
+      color: var(--bad);
+    }
   }
-  .row { display: flex; gap: 10px; align-items: baseline; }
-  .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pct { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
-  .bar { height: 3px; border-radius: 2px; background: var(--line); margin-top: 8px; overflow: hidden; }
-  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
-  li.done .pct { color: var(--ok); }
-  li.done .bar { display: none; }
-  li.fail .pct { color: var(--bad); }
-  li.fail .bar { display: none; }
-  footer { margin-top: 26px; font-size: 12px; color: var(--muted); text-align: center; }
+
+  :is(noscript, #plain) {
+    display: grid;
+    gap: var(--step-3);
+    justify-items: start;
+  }
+
+  #plain .btn {
+    justify-self: stretch;
+  }
+
+  footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--step-2);
+    margin-top: var(--step-6);
+    color: var(--muted);
+    font-size: var(--size-xs);
+  }
+}
 </style>
 </head>
 <body>
+__SPRITE__
 <main>
   <h1>PhotoDrop</h1>
-  <p class="sub">Files land in <b>__FOLDER__</b> on your PC.</p>
+  <p class="sub"><svg class="icon"><use href="#i-folder"></use></svg>__FOLDER__</p>
 
-  <div id="pinRow"><input id="pin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"></div>
+  <label class="field" id="pin" hidden>
+    <svg class="icon"><use href="#i-lock"></use></svg>
+    <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off">
+  </label>
 
-  <button id="go">Transfer photos</button>
+  <button id="go" class="btn"><svg class="icon"><use href="#i-upload"></use></svg>Send photos</button>
   <input id="picker" type="file" multiple accept="image/*,video/*" hidden>
 
-  <div id="status"></div>
+  <p id="status"></p>
   <ul id="list"></ul>
 
   <noscript>
-    <form action="/upload-form" method="post" enctype="multipart/form-data">
-      <p style="color:var(--muted);font-size:14px">JavaScript is off — use this instead:</p>
-      <!-- pin must come before the file: the server reads sections in order -->
-      <input type="text" name="pin" placeholder="PIN (if set)">
+    <p class="hint">JavaScript is off. Use this instead:</p>
+    <!-- pin must come before the file: the server reads sections in order -->
+    <label class="field"><svg class="icon"><use href="#i-lock"></use></svg>
+      <input form="plain" type="text" name="pin" placeholder="PIN"></label>
+    <form id="plain" action="/upload-form" method="post" enctype="multipart/form-data">
       <input type="file" name="files" multiple>
-      <button type="submit" style="margin-top:12px">Upload</button>
+      <button type="submit" class="btn">Send</button>
     </form>
   </noscript>
 
-  <footer>Local network only — nothing leaves your Wi-Fi.</footer>
+  <footer><svg class="icon"><use href="#i-wifi"></use></svg>Nothing leaves your Wi-Fi.</footer>
 </main>
 
 <script>
@@ -101,11 +209,11 @@ const go = document.getElementById('go');
 const picker = document.getElementById('picker');
 const list = document.getElementById('list');
 const status = document.getElementById('status');
-const pinRow = document.getElementById('pinRow');
-const pinInput = document.getElementById('pin');
+const pin = document.getElementById('pin');
+const pinInput = document.getElementById('pinInput');
 
 if (PIN_REQUIRED) {
-  pinRow.style.display = 'block';
+  pin.hidden = false;
   pinInput.value = localStorage.getItem('photodrop.pin') || '';
 }
 
@@ -119,7 +227,8 @@ picker.addEventListener('change', () => {
 function addRow(file) {
   const li = document.createElement('li');
   li.innerHTML =
-    '<div class="row"><span class="name"></span><span class="pct">0%</span></div>' +
+    '<div class="row"><span class="name"></span><span class="pct">0%</span>' +
+    '<svg class="icon mark"><use></use></svg></div>' +
     '<div class="bar"><i></i></div>';
   li.querySelector('.name').textContent = file.name;
   list.prepend(li);
@@ -127,7 +236,14 @@ function addRow(file) {
     li,
     pct: li.querySelector('.pct'),
     fill: li.querySelector('.bar > i'),
+    mark: li.querySelector('.mark > use'),
   };
+}
+
+function finish(row, state, label, icon) {
+  row.li.classList.add(state);
+  row.pct.textContent = label;
+  row.mark.setAttribute('href', icon);
 }
 
 function upload(file, row) {
@@ -158,25 +274,62 @@ async function send(files) {
   let done = 0, failed = 0;
   for (const file of files) {
     const row = addRow(file);
-    status.textContent = `Sending ${done + failed + 1} of ${files.length}…`;
+    status.textContent = `Sending ${done + failed + 1} of ${files.length}...`;
     try {
       await upload(file, row);
-      row.li.classList.add('done');
-      row.pct.textContent = 'Saved';
+      finish(row, 'done', 'Saved', '#i-check');
       done++;
     } catch (err) {
-      row.li.classList.add('fail');
-      row.pct.textContent = err.message;
+      finish(row, 'fail', err.message, '#i-x');
       failed++;
     }
   }
 
-  status.textContent = failed
-    ? `${done} saved, ${failed} failed.`
-    : `All ${done} saved to your PC.`;
+  status.textContent = failed ? `${done} saved, ${failed} failed.` : `All ${done} saved.`;
   go.disabled = false;
 }
 </script>
+</body>
+</html>
+""";
+
+    const string ReceiptTemplate = """
+<!doctype html>
+<html lang="en">
+<head>
+__HEAD__
+<style>
+__THEME__
+
+@layer page {
+  body {
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    padding: var(--step-5);
+    text-align: center;
+  }
+
+  main {
+    display: grid;
+    justify-items: center;
+    gap: var(--step-3);
+  }
+
+  .icon {
+    --icon: 32px;
+    color: var(--ok);
+  }
+}
+</style>
+</head>
+<body>
+__SPRITE__
+<main>
+  <svg class="icon"><use href="#i-check"></use></svg>
+  <h1>__MSG__</h1>
+  <a class="link" href="/">Send more</a>
+</main>
 </body>
 </html>
 """;
