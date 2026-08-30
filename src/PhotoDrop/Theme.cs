@@ -56,6 +56,8 @@ static class Theme
     --column: 26rem;
     --hairline: 1px solid var(--line);
     --lift: 0 6px 18px color-mix(in srgb, var(--accent) 26%, transparent);
+    --raise: 0 24px 60px rgb(0 0 0 / 0.4);
+    --scrim: rgb(0 0 0 / 0.5);
     --quick: 140ms ease;
   }
 
@@ -167,9 +169,15 @@ static class Theme
     }
   }
 
+  /* A full chrome reset. Leave the UA padding on and a bare <button> sits a few pixels
+     right of everything else in the same column. */
   button {
+    padding: 0;
+    border: 0;
+    background: none;
     font: inherit;
     color: inherit;
+    text-align: inherit;
     cursor: pointer;
   }
 
@@ -221,6 +229,42 @@ static class Theme
     }
   }
 
+  /* A switch, not a checkbox: it reads as on/off at a glance and needs no border. */
+  .switch {
+    --track-w: 42px;
+    --track-h: 24px;
+    --knob-inset: 3px;
+
+    appearance: none;
+    position: relative;
+    inline-size: var(--track-w);
+    block-size: var(--track-h);
+    flex: none;
+    margin: 0;
+    border-radius: var(--radius-pill);
+    background: var(--line);
+    cursor: pointer;
+    transition: background var(--quick);
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: var(--knob-inset) auto var(--knob-inset) var(--knob-inset);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--surface);
+      transition: translate var(--quick);
+    }
+
+    &:checked {
+      background: var(--accent);
+
+      &::after {
+        translate: calc(var(--track-w) - var(--track-h)) 0;
+      }
+    }
+  }
+
   .ok {
     color: var(--ok);
   }
@@ -244,6 +288,7 @@ static class Theme
   <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
   <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>

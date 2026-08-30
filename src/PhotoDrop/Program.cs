@@ -16,6 +16,19 @@ static class Program
     /// <summary>Raised (off the UI thread) each time a file finishes saving.</summary>
     public static event Action<string>? FileSaved;
 
+    /// <summary>Raised (off the UI thread) when settings change, so the tray can catch up.</summary>
+    public static event Action? ConfigChanged;
+
+    /// <summary>
+    /// Shows the native folder picker and returns the chosen path, or null if cancelled.
+    /// The tray supplies this: the picker is COM and only works on the message-loop thread,
+    /// so a Kestrel thread can't put it on screen itself.
+    /// </summary>
+    public static Func<string, Task<string?>>? FolderPicker;
+
+    /// <summary>The live listener. Swapped for a new one when the port changes.</summary>
+    static WebApplication? _app;
+
     [STAThread]   // the folder picker is COM, and COM wants an STA
     static void Main()
     {
@@ -32,15 +45,16 @@ static class Program
         Win32.SetProcessDpiAwarenessContext(Win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
         var config = AppConfig.Load();
-        var app = TryStart(config);
-        if (app is null) return;
+        _app = TryStart(config);
+        if (_app is null) return;
 
         using (var tray = new TrayApp(config))
         {
             tray.Run();   // blocks on the Win32 message loop until Exit
         }
 
-        try { app.StopAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(); } catch { }
+        // Not necessarily the listener started above - a port change swaps it.
+        try { _app?.StopAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(); } catch { }
     }
 
     /// <summary>Starts the listener, or explains the problem and returns null.</summary>
@@ -54,7 +68,7 @@ static class Program
             app.StartAsync().GetAwaiter().GetResult();
             return app;
         }
-        catch (Exception ex) when (Flatten(ex) is AddressInUseException)
+        catch (Exception ex) when (IsPortTaken(ex))
         {
             if (Dialogs.AskYesNo(
                     $"Another program on this PC is already using port {config.Port}, "
@@ -70,6 +84,45 @@ static class Program
             Dialogs.Warn($"PhotoDrop couldn't start.\n\n{Flatten(ex).Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Moves the listener to a different port while the app keeps running. The new one is
+    /// started before the old one stops, so there is never a moment with nothing listening
+    /// - and a port that won't bind leaves the old listener exactly where it was.
+    /// </summary>
+    static async Task<(bool Ok, string Error)> TryRebindAsync(AppConfig config, int port)
+    {
+        var previous = config.Port;
+        var old = _app;
+        WebApplication? fresh = null;
+
+        config.Port = port;
+        try
+        {
+            fresh = Build(config);
+            await fresh.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            config.Port = previous;
+            if (fresh is not null) { try { await fresh.DisposeAsync(); } catch { } }
+            return (false, IsPortTaken(ex)
+                ? $"Another program is already using port {port}."
+                : $"PhotoDrop couldn't listen on port {port}. {Flatten(ex).Message}");
+        }
+
+        _app = fresh;
+
+        // The request that asked for this is still open on the old listener, so let it
+        // answer before that listener goes away.
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            if (old is not null) { try { await old.StopAsync(TimeSpan.FromSeconds(5)); } catch { } }
+        });
+
+        return (true, "");
     }
 
     /// <summary>Makes sure the save folder exists, offering a picker if it can't be used.</summary>
@@ -119,6 +172,27 @@ static class Program
     {
         while (ex.InnerException is not null) ex = ex.InnerException;
         return ex;
+    }
+
+    /// <summary>Leads a folder failure in plain language; the OS detail follows it.</summary>
+    static string FolderProblem(Exception ex) => Flatten(ex) switch
+    {
+        UnauthorizedAccessException => "PhotoDrop isn't allowed to save there.",
+        DirectoryNotFoundException => "That drive isn't available.",
+        PathTooLongException => "That path is too long.",
+        ArgumentException or NotSupportedException => "That isn't a valid folder path.",
+        _ => "That folder can't be used."
+    };
+
+    /// <summary>
+    /// Kestrel reports a taken port as an AddressInUseException wrapping a SocketException,
+    /// so the whole chain has to be checked - the innermost alone is the wrong one.
+    /// </summary>
+    static bool IsPortTaken(Exception? ex)
+    {
+        for (; ex is not null; ex = ex.InnerException)
+            if (ex is AddressInUseException) return true;
+        return false;
     }
 
     const string CacheFor7Days = "public, max-age=604800";
@@ -238,6 +312,9 @@ static class Program
 
             var addresses = Net.LocalAddresses();
             var state = $"{{\"port\":{config.Port},"
+                        + $"\"folder\":{Json(config.SaveFolder)},"
+                        + $"\"pin\":{Json(config.Pin)},"
+                        + $"\"organizeByDate\":{(config.OrganizeByDate ? "true" : "false")},"
                         + $"\"addresses\":[{string.Join(",", addresses.Select(Json))}]}}";
 
             return Results.Content(SetupHtml.Page.Replace("__STATE__", state),
@@ -254,6 +331,86 @@ static class Program
             var png = new PngByteQRCode(data).GetGraphic(
                 10, new byte[] { 20, 22, 26 }, new byte[] { 255, 255, 255 });
             return Results.Bytes(png, "image/png");
+        });
+
+        app.MapPost("/api/pick-folder", async (HttpContext ctx) =>
+        {
+            if (!IsLocal(ctx)) return Results.NotFound();
+
+            var picker = FolderPicker;
+            if (picker is null) return Results.Text("{\"ok\":false}", "application/json");
+
+            string start;
+            try
+            {
+                using var body = await JsonDocument.ParseAsync(ctx.Request.Body);
+                start = (body.RootElement.GetProperty("current").GetString() ?? "").Trim();
+            }
+            catch
+            {
+                start = "";
+            }
+
+            if (string.IsNullOrWhiteSpace(start)) start = config.SaveFolder;
+
+            // Waits for the person to finish with the dialog; there is no sensible timeout.
+            var picked = await picker(Environment.ExpandEnvironmentVariables(start));
+            return picked is null
+                ? Results.Text("{\"ok\":false}", "application/json")
+                : Results.Text($"{{\"ok\":true,\"folder\":{Json(picked)}}}", "application/json");
+        });
+
+        // Everything in config.json that is a preference. Introduced is bookkeeping, not a
+        // setting, so it is deliberately not editable here.
+        app.MapPost("/api/config", async (HttpContext ctx) =>
+        {
+            if (!IsLocal(ctx)) return Results.NotFound();
+
+            string folder, pin;
+            int port;
+            bool byDate;
+            try
+            {
+                using var body = await JsonDocument.ParseAsync(ctx.Request.Body);
+                var root = body.RootElement;
+                folder = (root.GetProperty("folder").GetString() ?? "").Trim();
+                port = root.GetProperty("port").GetInt32();
+                pin = (root.GetProperty("pin").GetString() ?? "").Trim();
+                byDate = root.GetProperty("organizeByDate").GetBoolean();
+            }
+            catch
+            {
+                return Results.BadRequest();
+            }
+
+            folder = Environment.ExpandEnvironmentVariables(folder);
+            if (string.IsNullOrWhiteSpace(folder)) folder = AppConfig.DefaultSaveFolder;
+            if (port is < 1 or > 65535) return Refuse("Port must be between 1 and 65535.");
+
+            // Prove the folder works before committing it, or uploads start failing silently.
+            try { Directory.CreateDirectory(folder); }
+            catch (Exception ex) { return Refuse($"{FolderProblem(ex)} {Flatten(ex).Message}"); }
+
+            var moved = port != config.Port;
+            if (moved)
+            {
+                var (ok, error) = await TryRebindAsync(config, port);
+                if (!ok) return Refuse(error);
+            }
+
+            config.SaveFolder = folder;
+            config.Pin = pin;
+            config.OrganizeByDate = byDate;
+            config.Save();
+            ConfigChanged?.Invoke();
+
+            return Results.Text(
+                $"{{\"ok\":true,\"moved\":{(moved ? "true" : "false")},"
+                + $"\"port\":{config.Port},\"folder\":{Json(config.SaveFolder)}}}",
+                "application/json");
+
+            static IResult Refuse(string message) =>
+                Results.Text($"{{\"ok\":false,\"error\":{Json(message)}}}", "application/json");
         });
 
         app.MapPost("/api/firewall", (HttpContext ctx) =>
